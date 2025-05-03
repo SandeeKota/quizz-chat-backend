@@ -2,7 +2,7 @@ import { ProtectedRouterHandler, RouterHandler } from "../_types/router.interfac
 import config from "../config/config";
 import { User } from "../modal/User.modal";
 import jwt from "jsonwebtoken";
-import crypto from "crypto";
+import bcrypt from 'bcryptjs';
 
 const UserController = {
     signUp: <RouterHandler>(async (req, res) => {
@@ -18,22 +18,21 @@ const UserController = {
             const existingUser = await User.findOne({ email });
 
             if (existingUser) {
-                return res.status(400).json({
-                    error: true,
-                    message: "Email already in use"
-                });
+                return res.status(400).json({ message: 'User created', user: existingUser });
             }
 
-            // Generate a unique secretCode string
-            const uniqueCode = crypto.randomBytes(16).toString('hex');
+            const code = `${email}${phone}`
+            const newCode = await bcrypt.hash(code, 16);
 
-            const user = new User({ name, phone, email, password, secretCode: uniqueCode });
+            const user = new User({ name, phone, email, password, normalizeCode: code, secretCode: newCode });
+            console.log("user", user);
+
 
             await user.save();
 
             const token = jwt.sign({ id: user._id, email: user.email }, config.JWT_SECRET!, { expiresIn: "15d" });
 
-            res.status(201).json({ message: 'User created', token, secretCode: user.secretCode });
+            res.status(201).json({ message: 'User created', token, user: { ...user, _id: user._id } });
         } catch (error) {
             console.error(error);
             res.status(500).json({ message: 'Error signing up' });
@@ -42,7 +41,6 @@ const UserController = {
 
     login: <RouterHandler>(async (req, res) => {
         try {
-
             const { email, password } = req.body; // Destructure email and password
 
             if (!email || !password) {
@@ -55,16 +53,16 @@ const UserController = {
                 return res.status(404).json({ message: 'User  not found' });
             }
 
-
             const isMatch = await user.comparePassword(password);
 
             if (!isMatch) {
+                console.log("match Error", isMatch);
                 return res.status(401).json({ message: 'Invalid credentials' });
             }
-
             const token = jwt.sign({ id: user._id, email: user.email }, config.JWT_SECRET!, { expiresIn: "15d" });
+            console.log("token", token);
 
-            res.json({ message: 'Logged in', token, user: { id: user._id, email: user.email } });
+            res.status(200).json({ message: 'Logged in', token, user: user });
 
         } catch (error) {
             console.error(error);

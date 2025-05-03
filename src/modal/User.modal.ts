@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import { NextFunction } from 'express';
-import crypto from 'crypto';
+import crypto, { createHash } from 'crypto';
 import bcrypt from 'bcryptjs';
 
 
@@ -18,6 +18,7 @@ interface IUser extends mongoose.Document {
     email: string;
     password: string;
     secretCode: string;
+    normalizeCode: string;
     comparePassword(password: string): Promise<boolean>;
     compareSecretCode(secretCode: string): Promise<boolean>;
 }
@@ -26,7 +27,8 @@ const userScheam = new mongoose.Schema<IUser>({
     phone: { type: String, required: true, unique: true },
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
-    secretCode: { type: String, required: true, unique: true }
+    secretCode: { type: String, required: true, unique: true },
+    normalizeCode: { type: String, required: true, unique: true }
 }, { timestamps: true });
 
 
@@ -36,13 +38,6 @@ userScheam.pre<IUser>('save', async function (next) {
     if (this.isModified('password')) {
         this.password = await bcrypt.hash(this.password, 10);
     }
-
-    // If secretCode is not already set (e.g., during initial creation), generate a unique one
-    if (!this.secretCode) {
-        const uniqueCode = crypto.randomBytes(16).toString('hex');
-        this.secretCode = await bcrypt.hash(uniqueCode, 10); // Encrypt the secretCode
-    }
-
     next();
 });
 

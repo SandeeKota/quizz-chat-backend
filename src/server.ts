@@ -8,7 +8,7 @@ dotenv.config();
 
 const PORT = config.PORT;
 const app = express();
-
+app.use(require('cors')());
 // await connectDB();
 
 mongoose.connect(config.MONGO_URI!)
